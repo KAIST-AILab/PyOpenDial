@@ -1,0 +1,16 @@
+gui: True
+samples: 3000
+discount: 1.0
+system: u_m
+user: u_u
+speech_user: s_u
+speech_system: s_m
+floor: floor
+discretisation: 50
+recording: last
+timeout: 1000
+planner: forward  # forward or mcts
+horizon: 1
+mcts_simulation_count: 5
+mcts_exploration_constant: 1.0
+GOOGLE_APPLICATION_CREDENTIALS: /home/KAIST-AILab/PyOpenDial/gcloudkey.json

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<domain>
+	<initialstate>
+		<!-- Starting prompt -->
+        <variable id="u_m">
+			<value>Welcome to negotiation system!</value>
+		</variable>
+
+	</initialstate>
+
+	<model trigger="u_u">
+        <import href="python class name here"/>
+	</model>
+
+	<settings>
+		<modules>modules.negotiation.user_model.UserModel</modules>
+	</settings>
+</domain>

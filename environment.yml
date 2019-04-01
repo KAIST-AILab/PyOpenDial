@@ -1,0 +1,26 @@
+# platform: linux-64
+name: py-opendial
+channels:
+- soumith
+dependencies:
+- python=3.6
+- numpy
+- scipy
+- pyyaml
+- pytest
+- coverage
+- pytorch=0.2  #e2e negotiation
+- torchvision  #e2e negotiation
+- cuda80       #e2e negotiation
+- pip:
+  - regex
+  - sortedcontainers
+  - asteval
+  - parse
+  - visdom  #e2e negotiation
+  - multipledispatch
+  - pyqt5
+  - soundcard
+  - soundfile
+  - google-cloud-speech
+  - google-cloud-texttospeech

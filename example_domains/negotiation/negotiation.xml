@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<domain>
+
+    <function name="initial_message">example_domains.negotiation.negotiation_functions.initial_message</function>
+    <function name="negotiation_initial_turn">example_domains.negotiation.negotiation_functions.negotiation_initial_turn</function>
+
+    <initialstate>
+        <!-- Starting system's utterance -->
+        <variable id="u_m">
+            <value>@initial_message()</value>
+        </variable>
+
+        <variable id="initial_turn">
+            <value>@negotiation_initial_turn()</value>
+        </variable>
+
+        <variable id="current_step">
+            <value>Start</value>
+        </variable>
+
+        <variable id="negotiation_state">
+            <!-- custom class (singleton) -->
+            <value>@example_domains.negotiation.negotiation_state.NegotiationState</value>
+        </variable>
+
+    </initialstate>
+
+    <function name="generate_initial_system_utterance">example_domains.negotiation.negotiation_functions.generate_initial_system_utterance</function>
+    <function name="generate_user_response">example_domains.negotiation.negotiation_functions.generate_user_response</function>
+    <function name="generate_user_selection">example_domains.negotiation.negotiation_functions.generate_user_selection</function>
+
+    <model trigger="current_step">
+        <rule>
+            <case>
+                <condition>
+                    <if var="current_step" value="Start" />
+                    <if var="initial_turn" value="system" />
+                </condition>
+                <effect util="1">
+                    <set var="current_step" value="Negotiation" />
+                    <set var="u_m" value="generate_initial_system_utterance({negotiation_state})" />
+                </effect>
+            </case>
+            <case>
+                <condition>
+                    <if var="current_step" value="Start" />
+                    <if var="initial_turn" value="user" />
+                </condition>
+                <effect util="1">
+                    <set var="current_step" value="Negotiation" />
+                </effect>
+            </case>
+        </rule>
+    </model>
+
+    <model trigger="u_m">
+        <rule>
+            <case>
+                <condition>
+                    <if var="u_m" relation="contains" value="selection" />
+                </condition>
+                <effect util="1">
+                    <set var="current_step" value="Result" />
+                </effect>
+            </case>
+        </rule>
+    </model>
+
+    <model trigger="u_m_sim">
+        <!-- Simulate user model -->
+        <rule>
+            <case>
+                <!-- selection -->
+                <condition>
+                    <if var="current_step" value="Selection" />
+                    <if var="user_selection" value="NotSelected" />
+                </condition>
+                <effect>
+                    <set var="user_selection" value="generate_user_selection({negotiation_state})" />
+                </effect>
+            </case>
+            <case>
+                <!-- general case -->
+                <condition>
+                    <if var="current_step" value="Negotiation" />
+                </condition>
+                <effect>
+                    <set var="u_u_sim" value="generate_user_response({negotiation_state}, {u_m})" />
+                </effect>
+            </case>
+        </rule>
+    </model>
+
+    <!-- System's reaction by planner... Here, utility function should be specified. -->
+    <model trigger="u_u">
+        <custom-utility var="u_m" simvar="u_m_sim" function="example_domains.negotiation.negotiation_utility.system_utility" />
+    </model>
+
+    <model trigger="u_u_sim">
+        <custom-utility var="u_m_sim" simvar="u_m_sim" function="example_domains.negotiation.negotiation_utility.system_utility_simulation" />
+    </model>
+
+</domain>
