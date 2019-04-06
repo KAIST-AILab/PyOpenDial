@@ -1,8 +1,7 @@
-import os
-from pathlib import Path
-
 import importlib
+import os
 import regex as re
+from pathlib import Path
 
 from dialogue_state import DialogueState
 from domains.domain import Domain
@@ -10,7 +9,6 @@ from domains.model import Model
 from readers.xml_rule_reader import XMLRuleReader
 from readers.xml_state_reader import XMLStateReader
 from utils.xml_utils import XMLUtils
-from bn.nodes.custom_utility_function import CustomUtilityFunction
 
 """
 XML reader for dialogue domains.
@@ -138,16 +136,6 @@ class XMLDomainReader:
             if child.tag == 'rule':
                 rule = XMLRuleReader.get_rule(child)
                 model.add_rule(rule)
-            elif child.tag == 'custom-utility':
-                action_node_id = child.attrib['var']
-                simulation_action_node_id = child.attrib['simvar']
-                custom_utility_function_name = child.attrib['function'].strip()
-                module_name, actual_function_name = custom_utility_function_name.rsplit('.', 1)
-                mod = importlib.import_module(module_name)
-                func = getattr(mod, actual_function_name)
-
-                custom_utility_function = CustomUtilityFunction(action_node_id, simulation_action_node_id, func)
-                model.set_custom_utility_function(custom_utility_function)
             elif XMLUtils.has_content(child):
                 if child.tag == '#text':
                     raise ValueError()

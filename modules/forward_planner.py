@@ -12,33 +12,6 @@ from modules.module import Module
 from settings import Settings
 
 
-def process_utility_table(utility_table, target_action_ids):
-    target_utility_table = UtilityTable(utility_table.get_additional_info(),
-                                        utility_table.get_apply_changes_func(),
-                                        utility_table.get_rollback_changes_func())
-    other_assignments = []
-    for assignment in utility_table.get_rows():
-        action_ids = assignment.get_variables()
-        utility = utility_table.get_util(assignment)
-        if action_ids == target_action_ids:
-            target_utility_table.set_util(assignment, utility)
-        else:
-            # print('=================')
-            # print('other assignments', assignment)
-            # print('action_ids: ', action_ids)
-            # print('target_ids: ', target_action_ids)
-            # print('===================')
-
-            other_assignments.append(assignment)
-    return target_utility_table, other_assignments
-
-
-def apply_action_to_state(state, action, nontarget_assignments):
-    state.add_to_state(action.remove_primes())
-    for assignment in nontarget_assignments:
-        state.add_to_state(assignment.remove_primes())
-
-
 class ForwardPlanner(Module):
     """
     Online forward planner for OpenDial. The planner constructs a lookahead tree (with
@@ -152,38 +125,15 @@ class PlannerProcess:
         # TODO: ScheduledExecutorService
         # service.schedule(() -> isTerminated = true, timeout, TimeUnit.MILLISECONDS);
 
-        # handle custom utility (rename action node from var to simvar)
-        if init_state.get_custom_utility_function() and init_state.get_custom_utility_function().get_action_node_id() + "'" in init_state.get_action_node_ids():
-            action_node_id = init_state.get_custom_utility_function().get_action_node_id()
-            simulation_action_node_id = init_state.get_custom_utility_function().get_simulation_action_node_id()
-            init_state.remove_node(action_node_id + "'")
-            if not init_state.has_action_node(simulation_action_node_id):
-                import bn.nodes.action_node
-                simulation_action_node = bn.nodes.action_node.ActionNode(simulation_action_node_id + "'")
-                init_state.add_node(simulation_action_node)
-            else:
-                raise ValueError("Simulation action node already exists")
-
         # step 1: extract the Q-values
+        init_state.add_to_state(Assignment("__planning", '__planning'))
+        init_state.get_chance_node("__planning'").set_id("__planning")
         eval_actions = self.get_q_values(init_state, settings.horizon)
-        target_action_ids = init_state.get_action_node_ids()
-        eval_actions_target, nontarget_assignments = process_utility_table(eval_actions, target_action_ids)
 
         # step 2: find the action with highest utility
-        best_action = eval_actions_target.get_best()[0]
-        if eval_actions_target.get_util(best_action) < 0.001:
+        best_action = eval_actions.get_best()[0]
+        if eval_actions.get_util(best_action) < 0.001:
             best_action = Assignment.create_default(best_action.get_variables())
-
-        # handle custom utility (rename action node from simvar to var)
-        if init_state.get_custom_utility_function() and init_state.get_custom_utility_function().get_simulation_action_node_id() + "'" in best_action.get_variables():
-            best_action = best_action.rename_var(
-                init_state.get_custom_utility_function().get_simulation_action_node_id() + "'",
-                init_state.get_custom_utility_function().get_action_node_id() + "'"
-            )
-
-        # apply changes
-        if eval_actions.get_apply_changes_func() is not None:
-            eval_actions.apply_changes(init_state, best_action)
 
         # step 3: remove the action and utility nodes
         init_state.remove_nodes(init_state.get_utility_node_ids())
@@ -191,7 +141,8 @@ class PlannerProcess:
         init_state.remove_nodes(action_vars)
 
         # step 4: add the selection action to the dialogue state
-        apply_action_to_state(init_state, best_action, nontarget_assignments)
+        init_state.add_to_state(best_action.remove_primes())
+        init_state.remove_node("__planning")
         self.is_terminated = True
 
     @dispatch(DialogueState, int)
@@ -208,41 +159,28 @@ class PlannerProcess:
         if len(action_nodes) == 0:
             return UtilityTable()
 
-        raw_rewards = state.query_util(action_nodes)
-        # print(rewards)
+        rewards = state.query_util(action_nodes)
 
         if horizon == 1:
-            return raw_rewards
+            return rewards
 
-        q_values = UtilityTable(raw_rewards.get_additional_info(),
-                                raw_rewards.get_apply_changes_func(),
-                                raw_rewards.get_rollback_changes_func())
+        q_values = UtilityTable()
 
         discount = self.system.get_settings().discount_factor
 
         target_action_ids = action_nodes
-        _, nontarget_assignments = process_utility_table(raw_rewards, target_action_ids)
-        for action in raw_rewards.get_rows():
-            reward = raw_rewards.get_util(action)
+        for action in rewards.get_rows():
+            reward = rewards.get_util(action)
             if target_action_ids == action.get_variables():
                 q_values.set_util(action, reward)
 
                 if horizon > 1 and not self.is_terminated and not self.paused and self.has_transition(action):
                     state_copy = copy(state)
-                    # PART 1. apply changes
-                    if raw_rewards.get_apply_changes_func() is not None:
-                        values = raw_rewards.apply_changes(state, action)
-
-                    apply_action_to_state(state_copy, action, nontarget_assignments)
+                    state_copy.add_to_state(action.remove_primes())
                     self.update_state(state_copy)
 
                     if not action.is_default():
-                        # PART 2. simulate
                         expected = discount * self.get_expected_value(state_copy, horizon - 1)
-                        # PART 3. rollback
-                        if raw_rewards.get_rollback_changes_func() is not None:
-                            raw_rewards.rollback_changes(state, action, values)
-                        # ----------------
                         q_values.set_util(action, q_values.get_util(action) + expected)
             else:
                 q_values.set_util(action, reward)

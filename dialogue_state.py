@@ -14,7 +14,6 @@ from bn.distribs.prob_distribution import ProbDistribution
 from bn.distribs.single_value_distribution import SingleValueDistribution
 from bn.nodes.action_node import ActionNode
 from bn.nodes.chance_node import ChanceNode
-from bn.nodes.custom_utility_function import CustomUtilityFunction
 from bn.nodes.utility_node import UtilityNode
 from bn.values.value_factory import ValueFactory
 from datastructs.assignment import Assignment
@@ -60,7 +59,6 @@ class DialogueState(DialogueStateWrapper):
             self._evidence = Assignment()  # evidence values for state variables
             self._parameter_vars = set()  # Subset of variables that denote parameters
             self._incremental_vars = set()  # Subset of variables that are currently incrementally constructed
-            self._custom_utility_function = None  # Custom utility function
 
             self._init_lock()
         elif isinstance(arg1, BNetwork) and arg2 is None:
@@ -76,7 +74,6 @@ class DialogueState(DialogueStateWrapper):
             self._evidence = Assignment()  # evidence values for state variables
             self._parameter_vars = set()  # Subset of variables that denote parameters
             self._incremental_vars = set()  # Subset of variables that are currently incrementally constructed
-            self._custom_utility_function = None  # Custom utility function
 
             self._init_lock()
         elif isinstance(arg1, Collection) and isinstance(arg2, Assignment):
@@ -93,7 +90,6 @@ class DialogueState(DialogueStateWrapper):
             self._evidence = Assignment(evidence)
             self._parameter_vars = set()  # Subset of variables that denote parameters
             self._incremental_vars = set()  # Subset of variables that are currently incrementally constructed
-            self._custom_utility_function = None  # Custom utility function
 
             self._init_lock()
         elif isinstance(arg1, BNetwork) and isinstance(arg2, Assignment):
@@ -111,7 +107,6 @@ class DialogueState(DialogueStateWrapper):
             self._evidence = Assignment(evidence)
             self._parameter_vars = set()  # Subset of variables that denote parameters
             self._incremental_vars = set()  # Subset of variables that are currently incrementally constructed
-            self._custom_utility_function = None  # Custom utility function
 
             self._init_lock()
         else:
@@ -293,17 +288,6 @@ class DialogueState(DialogueStateWrapper):
         with self._locks['remove_from_state']:
             self.add_to_state(Assignment(variable_id, ValueFactory.none()))
 
-    @dispatch(CustomUtilityFunction)
-    def apply_custom_utility_function(self, custom_utility_function):
-        # assert(self._custom_utility_function is None)
-        action_node_id = custom_utility_function.get_action_node_id()
-        self._custom_utility_function = custom_utility_function
-        self.add_node(ActionNode(action_node_id + "'"))
-
-    @dispatch()
-    def get_custom_utility_function(self):
-        return self._custom_utility_function
-
     @dispatch(Rule)
     def apply_rule(self, rule):
         """
@@ -413,16 +397,11 @@ class DialogueState(DialogueStateWrapper):
         :param variables: the state or action variables to consider
         :return: the corresponding utility table
         """
-        # Custom utility function
-        if self._custom_utility_function and self._custom_utility_function.get_simulation_action_node_id() + "'" in variables:
-            assert (len(variables) == 1)
-            return self._custom_utility_function.query_util(self)
-        else:
-            try:
-                return SwitchingAlgorithm().query_util(self, variables, self._evidence)
-            except Exception as e:
-                self.log.warning("cannot perform inference: " + e)
-                raise ValueError()
+        try:
+            return SwitchingAlgorithm().query_util(self, variables, self._evidence)
+        except Exception as e:
+            self.log.warning("cannot perform inference: " + e)
+            raise ValueError()
 
     @dispatch()
     def query_util(self):
@@ -566,7 +545,6 @@ class DialogueState(DialogueStateWrapper):
         dialogue_state.add_evidence(copy.copy(self._evidence))
         dialogue_state._parameter_vars = set(self._parameter_vars)
         dialogue_state._incremental_vars = set(self._incremental_vars)
-        dialogue_state._custom_utility_function = self._custom_utility_function
         return dialogue_state
 
     def __str__(self):

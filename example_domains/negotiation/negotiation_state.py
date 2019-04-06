@@ -1,5 +1,5 @@
 import random
-from example_domains.negotiation.generate_model import GenerateModel
+from example_domains.negotiation.negotiation_agent import NegotiationAgent
 from utils.py_utils import Singleton
 
 
@@ -37,10 +37,10 @@ class NegotiationState(Singleton):
                 break
 
         self.system_ctx = system_ctx
-        self.system_model = GenerateModel(args, system_ctx, 'system')
+        self.system_agent = NegotiationAgent(args, system_ctx, 'system')
 
         self.user_ctx = user_ctx
-        self.user_model = GenerateModel(args, user_ctx, 'user')
+        self.user_agent = NegotiationAgent(args, user_ctx, 'user')
 
         self.action_num = 3  # used for planning
         if random.randint(0, 1):
@@ -50,3 +50,8 @@ class NegotiationState(Singleton):
 
     def __copy__(self):
         raise NotImplementedError()
+
+    def __str__(self):
+        return "[NegotiationState]"
+
+    __repr__ = __str__

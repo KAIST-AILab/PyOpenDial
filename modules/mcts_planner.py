@@ -1,45 +1,17 @@
 import logging
 from copy import copy
-from math import*
-from random import*
+from math import *
+from random import *
+
 import numpy as np
 
 from bn.distribs.distribution_builder import MultivariateTableBuilder
-from bn.distribs.utility_table import UtilityTable
 from datastructs.assignment import Assignment
 from modules.module import Module
 from settings import Settings
 
 # logger
 logger = logging.getLogger('PyOpenDial')
-
-
-def process_utility_table(utility_table, target_action_ids):
-    target_utility_table = UtilityTable(
-                                        utility_table.get_additional_info(),
-                                        utility_table.get_apply_changes_func(),
-                                        utility_table.get_rollback_changes_func())
-    other_assignments = []
-    for assignment in utility_table.get_rows():
-        action_ids = assignment.get_variables()
-        utility = utility_table.get_util(assignment)
-        if action_ids == target_action_ids:
-            target_utility_table.set_util(assignment, utility)
-        else:
-            # print('=================')
-            # print('other assignments', assignment)
-            # print('action_ids: ', action_ids)
-            # print('target_ids: ', target_action_ids)
-            # print('===================')
-
-            other_assignments.append(assignment)
-    return target_utility_table, other_assignments
-
-
-def apply_action_to_state(state, action, nontarget_assignments):
-    state.add_to_state(action.remove_primes())
-    for assignment in nontarget_assignments:
-        state.add_to_state(assignment.remove_primes())
 
 
 class StateNode():
@@ -58,12 +30,8 @@ class StateNode():
 
         action_nodes = state.get_action_node_ids()
         if len(action_nodes) != 0:
-            raw_rewards = state.query_util(action_nodes)
-            action_infos = raw_rewards.get_additional_info()
-            rewards, nontarget_assignments = process_utility_table(raw_rewards, action_nodes)
-            self.action_langhs = action_infos
+            rewards = state.query_util(action_nodes)
             self.rewards = rewards
-            self.nontarget_assignments = nontarget_assignments
             for action in rewards.get_rows():
                 self.child_nodes.append(ActionNode(action, initial_value=rewards.get_util(action)))
 
@@ -139,7 +107,7 @@ class ActionNode():
                 return child
 
     def __str__(self):
-        return "(ActionNode=%s/Q=%.1f,N=%d)" % (str(self.action), self.value, self.visit_count)
+        return "(ActionNode=%s/Q=%.3f,N=%d)" % (str(self.action), self.value, self.visit_count)
 
     __repr__ = __str__
 
@@ -167,7 +135,7 @@ class MCTS():
         state = copy(state_node.state)
         action = copy(action_node.action)
 
-        apply_action_to_state(state, action, state_node.nontarget_assignments)  # state.add_to_state(action.remove_primes())
+        state.add_to_state(action.remove_primes())
         self.update_state(state)
 
         observations = self.get_observations(state)
@@ -242,14 +210,8 @@ class MCTS():
         if terminal:
             return reward
 
-        # apply changes
-        if state_node.rewards.get_apply_changes_func() is not None:
-            values = state_node.rewards.apply_changes(state_node.state, action_node.action)
         # simulate
         R = reward + self.gamma * self.rollout(next_state_node, depth+1)
-        # rollback
-        if state_node.rewards.get_rollback_changes_func() is not None:
-            state_node.rewards.rollback_changes(state_node.state, action_node.action, values)
         return R
 
     def simulate(self, state_node, depth):
@@ -260,10 +222,6 @@ class MCTS():
         if not state_node.has_child(action_node):
             state_node.add_child(action_node)
         action_node.visit_count += 1
-
-        # PART 1. apply changes
-        if state_node.rewards.get_apply_changes_func() is not None:
-            values = state_node.rewards.apply_changes(state_node.state, action_node.action)
 
         next_state_node = self.next_state_node(state_node, action_node)
         reward = self.get_reward(state_node, action_node)
@@ -282,11 +240,8 @@ class MCTS():
             return reward
 
         if state_node.initialized:
-            # PART 2. simulate
+            # simulate
             R = reward + self.gamma * self.simulate(next_state_node, depth+1)
-            # PART 3. rollback
-            if state_node.rewards.get_rollback_changes_func() is not None:
-                state_node.rewards.rollback_changes(state_node.state, action_node.action, values)
 
             # update V, Q values...
             state_node.value = (state_node.value * (state_node.visit_count - 1) + R) / state_node.visit_count
@@ -295,11 +250,8 @@ class MCTS():
 
         else:
             state_node.initialized = True
-            # PART 2. simulate
+            # simulate
             R = reward + self.gamma *  self.rollout(next_state_node, depth+1)
-            # PART 3. rollback
-            if state_node.rewards.get_rollback_changes_func() is not None:
-                state_node.rewards.rollback_changes(state_node.state, action_node.action, values)
             return R
 
     def search(self):
@@ -384,33 +336,13 @@ class PlannerProcess():
 
         # step 1: find the best action with mcts
         state_copy = copy(init_state)
+        state_copy.add_to_state(Assignment("__planning", '__planning'))
+        state_copy.get_chance_node("__planning'").set_id("__planning")
 
-        # handle custom utility (rename action node from var to simvar)
-        if state_copy.get_custom_utility_function() and state_copy.get_custom_utility_function().get_action_node_id() + "'" in state_copy.get_action_node_ids():
-            action_node_id = state_copy.get_custom_utility_function().get_action_node_id()
-            simulation_action_node_id = state_copy.get_custom_utility_function().get_simulation_action_node_id()
-            state_copy.remove_node(action_node_id + "'")
-            if not state_copy.has_action_node(simulation_action_node_id):
-                import bn.nodes.action_node
-                simulation_action_node = bn.nodes.action_node.ActionNode(simulation_action_node_id + "'")
-                state_copy.add_node(simulation_action_node)
-            else:
-                raise ValueError("Simulation action node already exists")
         init_state_node = StateNode(state_copy)
 
         planner = MCTS(init_state_node, self.system)
         best_action = planner.search()
-        # handle custom utility (rename action node from simvar to var)
-        if state_copy.get_custom_utility_function() and state_copy.get_custom_utility_function().get_simulation_action_node_id() + "'" in best_action.get_variables():
-            best_action = best_action.rename_var(
-                state_copy.get_custom_utility_function().get_simulation_action_node_id() + "'",
-                state_copy.get_custom_utility_function().get_action_node_id() + "'"
-            )
-
-        # apply changes
-        if planner.root.rewards.get_apply_changes_func() is not None:  # TODO: before simulate ? after_search ?
-            planner.root.rewards.apply_changes(init_state, best_action)
-
 
         # step 2: remove the action and utility nodes
         init_state.remove_nodes(init_state.get_utility_node_ids())
@@ -418,6 +350,5 @@ class PlannerProcess():
         init_state.remove_nodes(action_vars)
 
         # step 3: add the selection action to the dialogue state
-        apply_action_to_state(init_state, best_action, init_state_node.nontarget_assignments)  # init_state.add_to_state(best_action.remove_primes())
+        init_state.add_to_state(best_action.remove_primes())
         self.is_terminated = True
-

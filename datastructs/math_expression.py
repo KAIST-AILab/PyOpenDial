@@ -1,17 +1,18 @@
-from asteval import Interpreter
-from copy import copy
 import logging
+from copy import copy
 
 import regex as re
+from asteval import Interpreter
+from multipledispatch import dispatch
 
 from bn.values.array_val import ArrayVal
 from bn.values.double_val import DoubleVal
 from datastructs.assignment import Assignment
 from settings import Settings
 from templates.template import Template
-from multipledispatch import dispatch
 
 dispatch_namespace = dict()
+
 
 def expr(expression, context=None):
     if context is None:
@@ -47,43 +48,40 @@ class MathExpression(MathExpressionWrapper):
 
     def __init__(self, arg1):
         if isinstance(arg1, str):
-            value = arg1
+            expression = arg1
             """
             Creates a new mathematical expression from the string
     
             :param value: the expression
             """
-            self._raw_expression_str = value
-
-            self._functions = MathExpression.get_functions(value)
+            self._raw_expression_str = expression
+            self._functions = MathExpression.get_functions(expression)
             self._variables = set()
 
-            value = re.sub(r'[\^]', '**', value)
-            self._variables.update(self.get_variable_labels(value))
-
-            value = re.sub(r'[\[\]\{\}]', '', value)
-            value = re.sub(r'\.([a-zA-Z])', '_$1', value)
-            self._expression_str = value
-
-            local = copy(value)
+            local = ','.join([x.strip() for x in expression.split(',')])
             for functional_template in self._functions:
                 self._variables.update(functional_template.get_slots())
-                local = local.replace(str(functional_template), functional_template.get_function().get_name() + hash(functional_template))
+                local = local.replace(str(functional_template), functional_template.get_function().__name__ + str(hash(functional_template)))
 
+            self._variables.update(self.get_variable_labels(local))
             for functional_template in self._functions:
-                self._variables.remove(functional_template.get_function().get_name() + hash(functional_template))
+                self._variables.remove(functional_template.get_function().__name__ + str(hash(functional_template)))
 
+            # expression = re.sub(r'[\^]', '**', expression)
+            local = re.sub(r'[\[\]\{\}]', '', local)
+            local = re.sub(r'\.([a-zA-Z])', '_$1', local)
+            self._expression_str = local
         elif isinstance(arg1, MathExpressionWrapper):
-            value = arg1
+            existing = arg1
             """
             Creates a new mathematical expression that is a copy from another one
     
             :param value: existing the expression to copy
             """
-            self._raw_expression_str = value._raw_expression_str
-            self._expression_str = value._expression_str
-            self._variables = value._variables
-            self._functions = value._functions
+            self._raw_expression_str = existing._raw_expression_str
+            self._expression_str = existing._expression_str
+            self._variables = existing._variables
+            self._functions = existing._functions
 
         else:
             raise NotImplementedError()
@@ -94,15 +92,15 @@ class MathExpression(MathExpressionWrapper):
         functions = set()
 
         for matcher in MathExpression.function_pattern.finditer(expression):
-            function_s = matcher.captures()
+            function_s = matcher.captures()[0]
             nb_open_parentheses = 0
             for idx, c in enumerate(expression):
                 if c == '(':
                     nb_open_parentheses += 1
-                elif c == ')' and nb_open_parentheses > 0:
+                elif c == ')' and nb_open_parentheses > 1:
                     nb_open_parentheses -= 1
                 elif c == ')':
-                    function_s += expression.substring(matcher.end(), idx + 1)
+                    function_s += expression[matcher.end():idx+1]
                     if Settings.is_function(function_s):
                         functional_template = Template.create(function_s)
                         functions.add(functional_template)
@@ -145,7 +143,7 @@ class MathExpression(MathExpressionWrapper):
         for functional_template in self._functions:
             custom_function = functional_template.get_function()
             result = functional_template.get_value(param)
-            param.add_pair((custom_function.get_name() + hash(functional_template)), result)
+            param.add_pair(custom_function.__name__ + str(hash(functional_template)), result)
 
         return expr(self._expression_str, self.get_doubles(param))
 

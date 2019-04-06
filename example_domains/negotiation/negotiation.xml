@@ -23,11 +23,57 @@
             <value>@example_domains.negotiation.negotiation_state.NegotiationState</value>
         </variable>
 
+        <variable id="dialogue_history">
+            <value> </value>
+        </variable>
+
+        <variable id="turn_num">
+            <value>0</value>
+        </variable>
     </initialstate>
 
-    <function name="generate_initial_system_utterance">example_domains.negotiation.negotiation_functions.generate_initial_system_utterance</function>
-    <function name="generate_user_response">example_domains.negotiation.negotiation_functions.generate_user_response</function>
+    <function name="generate_system_utterance">example_domains.negotiation.negotiation_functions.generate_system_utterance</function>
+    <function name="generate_user_utterance">example_domains.negotiation.negotiation_functions.generate_user_utterance</function>
     <function name="generate_user_selection">example_domains.negotiation.negotiation_functions.generate_user_selection</function>
+    <function name="update_dialogue_history">example_domains.negotiation.negotiation_functions.update_dialogue_history</function>
+    <function name="show_result">example_domains.negotiation.negotiation_functions.show_result</function>
+    <function name="compute_system_reward">example_domains.negotiation.negotiation_functions.compute_system_reward</function>
+    <function name="increase_turn_num">example_domains.negotiation.negotiation_functions.increase_turn_num</function>
+
+    <!-- Update dialogue history (user) -->
+    <model trigger="u_u">
+        <rule>
+            <case>
+                <effect>
+                    <set var="turn_num" value="increase_turn_num({turn_num})" />
+                </effect>
+            </case>
+        </rule>
+        <rule>
+            <case>
+                <condition>
+                    <if var="current_step" value="Negotiation" />
+                </condition>
+                <effect>
+                    <set var="dialogue_history" value="update_dialogue_history({dialogue_history},{turn_num},user,{u_u})" />
+                </effect>
+            </case>
+        </rule>
+    </model>
+
+    <!-- Update dialogue history (system) -->
+    <model trigger="u_m">
+        <rule>
+            <case>
+                <condition>
+                    <if var="current_step" value="Negotiation" />
+                </condition>
+                <effect>
+                    <set var="dialogue_history" value="update_dialogue_history({dialogue_history},{turn_num},system,{u_m})" />
+                </effect>
+            </case>
+        </rule>
+    </model>
 
     <model trigger="current_step">
         <rule>
@@ -36,9 +82,9 @@
                     <if var="current_step" value="Start" />
                     <if var="initial_turn" value="system" />
                 </condition>
-                <effect util="1">
+                <effect>
                     <set var="current_step" value="Negotiation" />
-                    <set var="u_m" value="generate_initial_system_utterance({negotiation_state})" />
+                    <set var="u_m" value="generate_system_utterance({negotiation_state}, {dialogue_history}, {turn_num},, 0)" />
                 </effect>
             </case>
             <case>
@@ -46,8 +92,27 @@
                     <if var="current_step" value="Start" />
                     <if var="initial_turn" value="user" />
                 </condition>
-                <effect util="1">
+                <effect>
                     <set var="current_step" value="Negotiation" />
+                </effect>
+            </case>
+            <case>
+                <condition>
+                    <if var="current_step" value="Selection" />
+                </condition>
+                <effect>
+                    <set var="u_m" value="How many books, hats, balls do you want to take? (ex. book:1,hat:0,ball:2)" />
+                </effect>
+            </case>
+        </rule>
+        <rule>
+            <case>
+                <condition>
+                    <if var="current_step" value="Result" />
+                </condition>
+                <effect util="compute_system_reward({negotiation_state}, {dialogue_history}, {turn_num}, {u_u})">
+                    <set var="u_m" value="show_result({negotiation_state}, {dialogue_history}, {turn_num}, {u_u})" />
+                    <set var="current_step" value="Terminated" />
                 </effect>
             </case>
         </rule>
@@ -55,49 +120,111 @@
 
     <model trigger="u_m">
         <rule>
+            <!-- System's selection -->
             <case>
-                <condition>
-                    <if var="u_m" relation="contains" value="selection" />
-                </condition>
-                <effect util="1">
-                    <set var="current_step" value="Result" />
-                </effect>
-            </case>
-        </rule>
-    </model>
-
-    <model trigger="u_m_sim">
-        <!-- Simulate user model -->
-        <rule>
-            <case>
-                <!-- selection -->
-                <condition>
-                    <if var="current_step" value="Selection" />
-                    <if var="user_selection" value="NotSelected" />
-                </condition>
-                <effect>
-                    <set var="user_selection" value="generate_user_selection({negotiation_state})" />
-                </effect>
-            </case>
-            <case>
-                <!-- general case -->
                 <condition>
                     <if var="current_step" value="Negotiation" />
+                    <if var="u_m" relation="contains" value="selection" />
                 </condition>
                 <effect>
-                    <set var="u_u_sim" value="generate_user_response({negotiation_state}, {u_m})" />
+                    <set var="current_step" value="Selection" />
                 </effect>
             </case>
         </rule>
     </model>
 
-    <!-- System's reaction by planner... Here, utility function should be specified. -->
     <model trigger="u_u">
-        <custom-utility var="u_m" simvar="u_m_sim" function="example_domains.negotiation.negotiation_utility.system_utility" />
+        <rule>
+            <!-- After selection -->
+            <case>
+                <condition>
+                    <if var="current_step" value="Selection" />
+                    <if var="u_u" relation="contains" value="book" />
+                    <if var="u_u" relation="contains" value="hat" />
+                    <if var="u_u" relation="contains" value="ball" />
+                    <if var="u_u" relation="contains" value=":" />
+                </condition>
+                <effect>
+                    <set var="current_step" value="Result"/>
+                </effect>
+            </case>
+            <!-- User's selection -->
+            <case>
+                <condition>
+                    <if var="current_step" value="Negotiation" />
+                    <if var="u_u" relation="contains" value="selection" />
+                </condition>
+                <effect>
+                    <set var="current_step" value="Selection" />
+                </effect>
+            </case>
+        </rule>
     </model>
 
-    <model trigger="u_u_sim">
-        <custom-utility var="u_m_sim" simvar="u_m_sim" function="example_domains.negotiation.negotiation_utility.system_utility_simulation" />
+    <model trigger="u_u">
+        <rule>
+            <!-- Negotiation -->
+            <case>
+                <condition>
+                    <if var="current_step" value="Negotiation" />
+                    <if var="u_u" relation="!contains" value="selection" />
+                </condition>
+                <effect util="0.001">
+                    <set var="u_m" value="generate_system_utterance({negotiation_state}, {dialogue_history}, {turn_num}, {u_u}, 0)" />
+                </effect>
+                <effect util="0.001">
+                    <set var="u_m" value="generate_system_utterance({negotiation_state}, {dialogue_history}, {turn_num}, {u_u}, 1)" />
+                </effect>
+                <effect util="0.001">
+                    <set var="u_m" value="generate_system_utterance({negotiation_state}, {dialogue_history}, {turn_num}, {u_u}, 2)" />
+                </effect>
+            </case>
+        </rule>
     </model>
+
+    <!--&lt;!&ndash; Simulate user model &ndash;&gt;-->
+    <!--<model trigger="u_m">-->
+        <!--<rule>-->
+            <!--<case>-->
+                <!--<condition>-->
+                    <!--&lt;!&ndash;<if var="__planning" value="__planning" />  &lt;!&ndash; only when planning &ndash;&gt;&ndash;&gt;-->
+                    <!--<if var="current_step" value="Start" />-->
+                    <!--<if var="initial_turn" value="user" />-->
+                <!--</condition>-->
+                <!--<effect>-->
+                    <!--<set var="u_u" value="generate_user_utterance({negotiation_state}, {dialogue_history}, {turn_num}, {u_m})" />-->
+                <!--</effect>-->
+            <!--</case>-->
+        <!--</rule>-->
+    <!--</model>-->
+
+    <!--<model trigger="u_m">-->
+        <!--<rule>-->
+            <!--<case>-->
+                <!--<condition>-->
+                    <!--&lt;!&ndash;<if var="__planning" value="__planning" />  &lt;!&ndash; only when planning &ndash;&gt;&ndash;&gt;-->
+                    <!--<if var="current_step" value="Selection" />-->
+                <!--</condition>-->
+                <!--<effect>-->
+                    <!--<set var="u_u" value="generate_user_selection({negotiation_state}, {dialogue_history})" />-->
+                <!--</effect>-->
+            <!--</case>-->
+        <!--</rule>-->
+    <!--</model>-->
+
+    <!--<model trigger="u_m">-->
+        <!--<rule>-->
+            <!--<case>-->
+                <!--<condition>-->
+                    <!--&lt;!&ndash;<if var="__planning" value="__planning" />  &lt;!&ndash; only when planning &ndash;&gt;&ndash;&gt;-->
+                    <!--<if var="current_step" value="Negotiation" />-->
+                    <!--<if var="u_m" relation="!contains" value="selection" />-->
+                <!--</condition>-->
+                <!--<effect>-->
+                    <!--<set var="u_u" value="generate_user_utterance({negotiation_state}, {dialogue_history}, {turn_num}, {u_m})" />-->
+                <!--</effect>-->
+            <!--</case>-->
+        <!--</rule>-->
+    <!--</model>-->
 
 </domain>

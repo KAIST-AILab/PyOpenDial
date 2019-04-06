@@ -1,5 +1,4 @@
 import logging
-from collections import Callable
 
 from multipledispatch import dispatch
 
@@ -28,10 +27,6 @@ class UtilityTable(UtilityFunction):
             """
             self._table = dict()
             self._variables = set()
-            # for custom utility
-            self._additional_info = None
-            self._apply_changes_func = None
-            self._rollback_changes_func = None
         elif isinstance(arg1, dict) and arg2 is None and arg3 is None:
             values = arg1
             """
@@ -43,28 +38,6 @@ class UtilityTable(UtilityFunction):
             self._variables = set()
             for assignment in values.keys():
                 self.set_util(assignment, values[assignment])
-            # for custom utility
-            self._additional_info = None
-            self._apply_changes_func = None
-            self._rollback_changes_func = None
-        elif isinstance(arg1, object) and (arg2 is None or isinstance(arg2, Callable)) and (arg3 is None or isinstance(arg3, Callable)):
-            additional_info, apply_changes_func, rollback_changes_func = arg1, arg2, arg3
-            """
-            Custom utility function
-
-            :param additional_info:
-            :param apply_changes_func:
-            :param rollback_changes_func:
-            """
-            self._table = dict()
-            self._variables = set()
-
-            # for custom utility
-            self._additional_info = additional_info
-            # apply_changes_func(utility_table, state, action) where state: DialogueState, action: Assignment
-            self._apply_changes_func = apply_changes_func
-            # rollback_changes_func(utility_table, state, action, values) where values: returned by apply_changes_func
-            self._rollback_changes_func = rollback_changes_func
         else:
             raise NotImplementedError()
 
@@ -234,26 +207,6 @@ class UtilityTable(UtilityFunction):
             new_table[new_assignment] = self._table[assignment]
 
         self._table = new_table
-
-    def set_custom_utility(self, additional_info, apply_changes_func, rollback_changes_func):
-        self._additional_info = additional_info
-        self._apply_changes_func = apply_changes_func
-        self._rollback_changes_func = rollback_changes_func
-
-    def apply_changes(self, state, action):
-        return self._apply_changes_func(self, state, action)
-
-    def rollback_changes(self, state, action, values):
-        return self._rollback_changes_func(self, state, action, values)
-
-    def get_additional_info(self):
-        return self._additional_info
-
-    def get_apply_changes_func(self):
-        return self._apply_changes_func
-
-    def get_rollback_changes_func(self):
-        return self._rollback_changes_func
 
 
 class UtilityEstimate:

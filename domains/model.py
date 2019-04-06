@@ -1,11 +1,11 @@
-from bn.nodes.custom_utility_function import CustomUtilityFunction
+import logging
+from collections import Collection
+
+from multipledispatch import dispatch
+
 from dialogue_state import DialogueState
 from domains.rules.rule import Rule
 from templates.template import Template
-from collections import Collection
-
-import logging
-from multipledispatch import dispatch
 
 
 class Model:
@@ -31,7 +31,6 @@ class Model:
         self._blocking = False
         self._triggers = []
         self._rules = []
-        self._custom_utility_function = None
         self._id = "model" + str(Model.id_counter)
         Model.id_counter += 1
 
@@ -90,15 +89,6 @@ class Model:
         """
         self._blocking = blocking
 
-    @dispatch(CustomUtilityFunction)
-    def set_custom_utility_function(self, custom_utility_function):
-        assert(self._custom_utility_function is None)
-        self._custom_utility_function = custom_utility_function
-
-    @dispatch()
-    def get_custom_utility_function(self):
-        return self._custom_utility_function
-
     # ===================================
     # GETTERS
     # ===================================
@@ -136,9 +126,6 @@ class Model:
                 self.log.warning("rule " + rule.get_rule_id() + " could not be applied ")
                 raise ValueError()
 
-        if self._custom_utility_function is not None:
-            state.apply_custom_utility_function(self._custom_utility_function)
-
         return len(state.get_new_variables()) > 0 or len(state.get_new_action_variables()) > 0
 
     # TODO: 버그인지 확인 필요.
@@ -154,7 +141,7 @@ class Model:
         if updated_vars is None:
             raise ValueError()
 
-        if len(self._rules) == 0 and self._custom_utility_function is None:
+        if len(self._rules) == 0:
             return False
         for trigger in self._triggers:
             for updated_var in updated_vars:
@@ -173,7 +160,7 @@ class Model:
         if updated_vars is None:
             raise ValueError()
 
-        if len(self._rules) == 0 and self._custom_utility_function is None:
+        if len(self._rules) == 0:
             return False
         for trigger in self._triggers:
             for updated_var in updated_vars:
