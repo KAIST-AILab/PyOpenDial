@@ -240,7 +240,10 @@ class StatePruner:
 
         for utility_node in original.get_utility_nodes():
             if not reduced.has_utility_node(utility_node.get_id()):
-                reduced.add_node(copy.copy(utility_node))
+                reduced_utility_node = copy.copy(utility_node)
+                reduced.add_node(reduced_utility_node)
                 for input in utility_node.get_input_node_ids():
                     if reduced.has_node(input):
-                        reduced.get_utility_node(utility_node.get_id()).add_input_node(reduced.get_node(input))
+                        reduced_utility_node.add_input_node(reduced.get_node(input))
+                    elif reduced.has_node(input + "'"):  # TODO: check if this is correct
+                        reduced_utility_node.add_input_node(reduced.get_node(input + "'"))

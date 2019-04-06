@@ -32,6 +32,7 @@ class Model:
         self._triggers = []
         self._rules = []
         self._id = "model" + str(Model.id_counter)
+        self.planning_only = False
         Model.id_counter += 1
 
     @dispatch()

@@ -404,7 +404,7 @@ class DialogueSystem:
                 self._cur_state.reduce()
 
                 for model in self._domain.get_models():
-                    if model.is_triggered(self._cur_state, to_process):
+                    if not model.planning_only and model.is_triggered(self._cur_state, to_process):
                         change = model.trigger(self._cur_state)
                         if change and model.is_blocking():
                             break

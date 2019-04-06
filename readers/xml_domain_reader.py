@@ -158,4 +158,7 @@ class XMLDomainReader:
         if 'id' in node.keys():
             model.set_id(node.attrib['id'])
 
+        if 'planning-only' in node.keys():
+            model.planning_only = node.attrib['planning-only'].lower() == 'true'
+
         return model

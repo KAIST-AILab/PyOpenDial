@@ -38,16 +38,18 @@ def initial_message():
     return message
 
 
-def update_dialogue_history(dialogue_history, turn_num, turn, utterance):
+def update_dialogue_history(dialogue_history, current_step, turn_num, turn, utterance):
     """
     :param dialogue_history: the dialogue history
     :param turn: 'user' or 'system'
     :param utterance: the utterance
     """
     turn_num = int(turn_num)
-    utterances = dialogue_history.split("\n")
-    utterances.remove('')
-    if len(utterances) > 0 and utterances[-1] == "<%s>%s" % (turn, utterance):
+    utterances = dialogue_history.split("#")
+    utterances = list(filter(lambda x: x != '', utterances))
+    if current_step != 'Negotiation':
+        return dialogue_history
+    elif len(utterances) > 0 and utterances[-1] == "<%s>%s" % (turn, utterance):
         return dialogue_history
     elif 'selection' in utterance:
         return dialogue_history
@@ -56,7 +58,7 @@ def update_dialogue_history(dialogue_history, turn_num, turn, utterance):
     elif 'There are' in utterance and 'For you, each book has a value of' in utterance:
         return dialogue_history
     else:
-        return dialogue_history + "\n<%s>%s" % (turn, utterance)
+        return dialogue_history + "#<%s>%s" % (turn, utterance)
 
 
 def update_negotiation_agent(negotiation_state, dialogue_history, is_user):
@@ -68,8 +70,8 @@ def update_negotiation_agent(negotiation_state, dialogue_history, is_user):
         negotiation_agent.feed_context(negotiation_state.system_ctx)
 
     # read dialogue history
-    utterances = dialogue_history.split("\n")
-    utterances.remove('')
+    utterances = dialogue_history.split("#")
+    utterances = list(filter(lambda x: x != '', utterances))
     for utterance in utterances:
         if '<user>' in utterance:
             prefix_token = 'YOU:' if is_user else 'THEM:'
@@ -80,9 +82,9 @@ def update_negotiation_agent(negotiation_state, dialogue_history, is_user):
     return len(utterances)
 
 
-def generate_system_utterance(negotiation_state, dialogue_history, turn_num, u_u, idx):
+def generate_system_utterance(negotiation_state, dialogue_history, current_step, turn_num, u_u, idx):
     if u_u:
-        dialogue_history = update_dialogue_history(dialogue_history, turn_num, 'user', u_u)
+        dialogue_history = update_dialogue_history(dialogue_history, current_step, turn_num, 'user', u_u)
     idx = int(idx)
 
     global system_utterance
@@ -91,12 +93,18 @@ def generate_system_utterance(negotiation_state, dialogue_history, turn_num, u_u
         update_negotiation_agent(negotiation_state, dialogue_history, is_user=False)
         system_utterance[(dialogue_history, idx)] = negotiation_state.system_agent.write()
 
+    # print()
+    # print('GENERATE SYSTEM UTTERANCE(%d)' % idx)
+    # print(dialogue_history.split("#"))
+    # print(system_utterance[dialogue_history, idx])
+    # print()
+
     return system_utterance[(dialogue_history, idx)]
 
 
-def generate_system_selection(negotiation_state, dialogue_history, turn_num, u_u):
+def generate_system_selection(negotiation_state, dialogue_history, current_step, turn_num, u_u):
     if u_u:
-        dialogue_history = update_dialogue_history(dialogue_history, turn_num, 'user', u_u)
+        dialogue_history = update_dialogue_history(dialogue_history, current_step, turn_num, 'user', u_u)
     global system_selection
     if dialogue_history not in system_selection:
         update_negotiation_agent(negotiation_state, dialogue_history, is_user=False)
@@ -105,16 +113,16 @@ def generate_system_selection(negotiation_state, dialogue_history, turn_num, u_u
     return system_selection[dialogue_history]
 
 
-def generate_user_utterance(negotiation_state, dialogue_history, turn_num, u_m):
+def generate_user_utterance(negotiation_state, dialogue_history, current_step, turn_num, u_m):
     if u_m:
-        dialogue_history = update_dialogue_history(dialogue_history, turn_num, 'system', u_m)
+        dialogue_history = update_dialogue_history(dialogue_history, current_step, turn_num, 'system', u_m)
     global user_utterance
     if dialogue_history not in user_utterance:
         update_negotiation_agent(negotiation_state, dialogue_history, is_user=True)
         user_utterance[dialogue_history] = negotiation_state.user_agent.write()
 
     # print('GENERATE USER UTTERANCE')
-    # print(dialogue_history.split("\n"))
+    # print(dialogue_history.split("#"))
     # print(user_utterance[dialogue_history])
     # print()
 
@@ -131,22 +139,22 @@ def generate_user_selection(negotiation_state, dialogue_history):
             user_selection[dialogue_history] = "book=100,hat=100,ball=100"
 
     # print('GENERATE USER SELECTION')
-    # print(dialogue_history.split("\n"))
+    # print(dialogue_history.split("#"))
     # print(user_selection[dialogue_history])
     # print()
 
     return user_selection[dialogue_history]
 
 
-def show_result(negotiation_state, dialogue_history, turn_num, u_u):
-    system_selection_utterance = generate_system_selection(negotiation_state, dialogue_history, turn_num, u_u)
+def show_result(negotiation_state, dialogue_history, current_step, turn_num, u_u):
+    system_selection_utterance = generate_system_selection(negotiation_state, dialogue_history, current_step, turn_num, u_u)
     system_selection = [int(x) for x in parse('book:{},hat:{},ball:{}', system_selection_utterance)]
-    reward = compute_user_reward(negotiation_state, dialogue_history, turn_num, u_u)
+    reward = compute_user_reward(negotiation_state, dialogue_history, current_step, turn_num, u_u)
     return 'System selected %d books, %d hats, and %d balls. Your reward is %d.' % (system_selection[0], system_selection[1], system_selection[2], reward)
 
 
-def compute_user_reward(negotiation_state, dialogue_history, turn_num, u_u):
-    system_selection_utterance = generate_system_selection(negotiation_state, dialogue_history, turn_num, u_u)
+def compute_user_reward(negotiation_state, dialogue_history, current_step, turn_num, u_u):
+    system_selection_utterance = generate_system_selection(negotiation_state, dialogue_history, current_step, turn_num, u_u)
     user_selection_utterance = u_u
 
     system_selection = parse('book:{},hat:{},ball:{}', system_selection_utterance)
@@ -162,8 +170,8 @@ def compute_user_reward(negotiation_state, dialogue_history, turn_num, u_u):
         return 0.
 
 
-def compute_system_reward(negotiation_state, dialogue_history, turn_num, u_u):
-    system_selection_utterance = generate_system_selection(negotiation_state, dialogue_history, turn_num, u_u)
+def compute_system_reward(negotiation_state, dialogue_history, current_step, turn_num, u_u):
+    system_selection_utterance = generate_system_selection(negotiation_state, dialogue_history, current_step, turn_num, u_u)
     user_selection_utterance = u_u
 
     system_selection = parse('book:{},hat:{},ball:{}', system_selection_utterance)

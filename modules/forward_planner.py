@@ -126,8 +126,6 @@ class PlannerProcess:
         # service.schedule(() -> isTerminated = true, timeout, TimeUnit.MILLISECONDS);
 
         # step 1: extract the Q-values
-        init_state.add_to_state(Assignment("__planning", '__planning'))
-        init_state.get_chance_node("__planning'").set_id("__planning")
         eval_actions = self.get_q_values(init_state, settings.horizon)
 
         # step 2: find the action with highest utility
@@ -142,7 +140,6 @@ class PlannerProcess:
 
         # step 4: add the selection action to the dialogue state
         init_state.add_to_state(best_action.remove_primes())
-        init_state.remove_node("__planning")
         self.is_terminated = True
 
     @dispatch(DialogueState, int)

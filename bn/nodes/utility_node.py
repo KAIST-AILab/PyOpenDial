@@ -160,6 +160,8 @@ class UtilityNode(BNode):
         """
         return str(self._distrib)
 
+    __repr__ = __str__
+
     def __hash__(self):
         """
         Returns the hashcode for the value, computed from the node identifier and the distribution.

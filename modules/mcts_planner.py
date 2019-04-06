@@ -32,6 +32,7 @@ class StateNode():
         if len(action_nodes) != 0:
             rewards = state.query_util(action_nodes)
             self.rewards = rewards
+
             for action in rewards.get_rows():
                 self.child_nodes.append(ActionNode(action, initial_value=rewards.get_util(action)))
 
@@ -51,14 +52,19 @@ class StateNode():
         Select the next state based on UCB rule
         :return:
         """
-        best_action_node = self.child_nodes[0]
+        best_action_node = None
 
         for action_node in self.child_nodes:
+            if action_node.value == 0:
+                continue
+
             if action_node.visit_count == 0:
                 best_action_node = action_node
                 break
 
-            if best_action_node.value + c * sqrt(log(self.visit_count) / best_action_node.visit_count)\
+            if best_action_node is None:
+                best_action_node = action_node
+            elif best_action_node.value + c * sqrt(log(self.visit_count) / best_action_node.visit_count)\
                     < action_node.value + c * sqrt(log(self.visit_count) / action_node.visit_count):
                 best_action_node = action_node
 
@@ -73,6 +79,11 @@ class StateNode():
                 best_child = child
 
         return best_child
+
+    def __str__(self):
+        return "[%s] %s" % (str(self.state), str(self.child_nodes))
+
+    __repr__ = __str__
 
 
 class ActionNode():
@@ -197,6 +208,7 @@ class MCTS():
                         break
 
     def rollout(self, state_node, depth):
+        # print('ROLLOUT(%d): %s' % (depth, str(state_node)))
         if depth > self.max_depth or len(state_node.child_nodes) == 0:
             return 0
 
@@ -215,6 +227,7 @@ class MCTS():
         return R
 
     def simulate(self, state_node, depth):
+        # print('SIMULATE(%d): %s' % (depth, str(state_node)))
         if depth > self.max_depth or len(state_node.child_nodes) == 0:
             return 0
         action_node = state_node.uct_select_child(self.c)
@@ -336,8 +349,6 @@ class PlannerProcess():
 
         # step 1: find the best action with mcts
         state_copy = copy(init_state)
-        state_copy.add_to_state(Assignment("__planning", '__planning'))
-        state_copy.get_chance_node("__planning'").set_id("__planning")
 
         init_state_node = StateNode(state_copy)
 
