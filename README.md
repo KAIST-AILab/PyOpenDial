@@ -1,8 +1,8 @@
 # PyOpenDial
 
-This is a Python implementation of OpenDial (http://www.opendial-toolkit.net/, https://github.com/plison/opendial) 
+A Python implementation of the OpenDial toolkit (http://www.opendial-toolkit.net/, https://github.com/plison/opendial) 
 
-by KAIST AIPR Lab (http://ailab.kaist.ac.kr)
+Read our accompanying paper at ....
 
 ## Installation
 ### 1. Download this repository:
