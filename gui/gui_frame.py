@@ -2,7 +2,7 @@ import logging
 import sys
 from collections import Collection
 
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtCore import Qt
 from multipledispatch import dispatch
 
@@ -80,6 +80,7 @@ class GUIFrame(Module):
                     text = self._get_text_rendering(table)
                     self.gui.chatlog.append(text)
                     self.gui.chatlog.setAlignment(Qt.AlignLeft)
+                    self.gui.chatlog.moveCursor(QtGui.QTextCursor.End)
 
     @dispatch(CategoricalTable)
     def _get_text_rendering(self, table):

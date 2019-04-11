@@ -63,7 +63,7 @@ class GUI(QtWidgets.QWidget):
         self.GuiSetup()
 
         self.setWindowTitle('PyOpenDial toolkit')
-        self.setGeometry(1000, 100, 800, 1100)
+        self.setGeometry(1000, 100, 800, 500)
         self.show()
 
         # if not self._system._domain._xml_file is None:
@@ -253,12 +253,14 @@ class GUI(QtWidgets.QWidget):
     def pause_interaction(self):
         self.chatlog.append("[System paused]\n")
         self.chatlog.setAlignment(Qt.AlignLeft)
+        self.chatlog.moveCursor(QtGui.QTextCursor.End)
         self._system._paused = True
         self.pr_fun = self.resume_interaction
 
     def resume_interaction(self):
         self.chatlog.append("[System resumed]\n")
         self.chatlog.setAlignment(Qt.AlignLeft)
+        self.chatlog.moveCursor(QtGui.QTextCursor.End)
         self._system._paused = False
         self.pr_fun = self.pause_interaction
 
@@ -273,6 +275,7 @@ class GUI(QtWidgets.QWidget):
         self.chatlog.clear()
         self.chatlog.append("[Module FlightBookingExample successfully attached]\n")
         self.chatlog.setAlignment(Qt.AlignLeft)
+        self.chatlog.moveCursor(QtGui.QTextCursor.End)
         # self._system.change_domain(domain)
 
         self.save_as.setEnabled(True)
@@ -297,6 +300,7 @@ class GUI(QtWidgets.QWidget):
     def switch_forward(self):
         self.chatlog.append("[Switch to Forward Planner]\n")
         self.chatlog.setAlignment(Qt.AlignLeft)
+        self.chatlog.moveCursor(QtGui.QTextCursor.End)
 
         if self.has_mcts_planner():
             self._system.detach_module(MCTSPlanner)
@@ -307,6 +311,7 @@ class GUI(QtWidgets.QWidget):
     def switch_mcts(self):
         self.chatlog.append("[Switch to MCTS Planner]\n")
         self.chatlog.setAlignment(Qt.AlignLeft)
+        self.chatlog.moveCursor(QtGui.QTextCursor.End)
 
         if self.has_forward_planner():
             self._system.detach_module(ForwardPlanner)
