@@ -3,9 +3,14 @@
 conda env create -f environment_chitchat.yml
 conda activate py-opendial-chitchat
 
+PYTHON_BIN=~/anaconda3/envs/py-opendial-chitchat/bin/python
+
 git clone https://github.com/facebookresearch/ParlAI.git
-cd ParlAI; python setup.py develop
+cd ParlAI; $PYTHON_BIN setup.py develop
 cd ..
+
+$PYTHON_BIN -m spacy download en
+
 
 cd example_domains/chitchat
 mkdir checkpoints
