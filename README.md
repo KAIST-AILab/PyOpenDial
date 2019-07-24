@@ -30,7 +30,7 @@ https://cloud.google.com/text-to-speech/docs/quickstart-protocol
 # Execution
 python main.py
 ```
-You can try various examples in example_domains, including 'example_domains/negotiation/negotiation.xml' and 'example_domains/example-flightbooking.xml'.
+You can try various examples in example_domains, including 'example_domains/negotiation/negotiation.xml', 'example_domains/chitchat/chitchat.xml' and 'example_domains/example-flightbooking.xml'.
 
 The detailed information of the negotiation dialogue can be found in the followings:
 - https://www.aclweb.org/anthology/D17-1259
