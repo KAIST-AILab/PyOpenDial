@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<domain>
+
+    <function name="observe_and_act">example_domains.chitchat.chitchat_functions.observe_and_act</function>
+
+    <initialstate>
+        <!-- Starting system's utterance -->
+        <variable id="u_m">
+            <value>Welcome to chitchat!</value>
+        </variable>
+    </initialstate>
+
+    <model trigger="u_u">
+        <rule>
+            <case>
+                <effect>
+                    <set var="u_m" value="observe_and_act({u_u})" />
+                </effect>
+            </case>
+        </rule>
+    </model>
+
+</domain>

@@ -1,0 +1,35 @@
+# platform: linux-64
+name: py-opendial-chitchat
+channels:
+- pytorch  # chitchat
+dependencies:
+- python=3.6
+- numpy
+- scipy
+- pyyaml
+- pytest
+- coverage
+- pytorch=0.4.1  # chitchat
+- cuda90       # chitchat
+- pip:
+  - regex
+  - sortedcontainers
+  - asteval
+  - parse
+  - multipledispatch
+  - pyqt5
+  - soundcard
+  - soundfile
+  - google-cloud-speech
+  - google-cloud-texttospeech
+  - spacy==2.0.12  # chitchat
+  - numpy==1.14.5 # chitchat
+  - scipy==1.0.0 # chitchat
+  - tqdm==4.23.2 # chitchat
+  - ftfy==5.5.0 # chitchat
+  - elasticsearch==6.3.1 # chitchat
+  - nltk==3.2.5 # chitchat
+  - emoji==0.5.0 # chitchat
+  - mosestokenizer==1.0.0 # chitchat
+  - language-check==1.1 # chitchat
+  - attrdict # chitchat
